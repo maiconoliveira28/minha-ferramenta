@@ -173,7 +173,9 @@ tbody tr:hover td{background:#fafafa;}
 <!-- AUTH -->
 <div class="auth-wrap" id="auth-wrap">
   <div class="auth-box">
-    <div class="auth-logo"><span class="ico">📦</span><h1>StockPro</h1><p>Gestão de varejo simplificada</p></div>
+    <div class="auth-logo">
+      <svg width="56" height="56" viewBox="0 0 44 44" style="margin:0 auto 8px;display:block"><rect x="2" y="2" width="24" height="30" rx="4" fill="url(#logoGradAuth)"/><rect x="18" y="12" width="24" height="30" rx="4" fill="#a5b4fc"/><defs><linearGradient id="logoGradAuth" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs></svg>
+      <h1>StockPro</h1><p>Gestão de varejo simplificada</p></div>
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchAuthTab('login',this)">Entrar</button>
       <button class="auth-tab" onclick="switchAuthTab('cadastro',this)">Criar conta</button>
@@ -215,7 +217,9 @@ tbody tr:hover td{background:#fafafa;}
 <div class="app-wrap" id="app-wrap">
   <div class="app">
     <div class="header">
-      <div class="header-icon">📦</div>
+      <div class="header-icon" style="background:none;box-shadow:none;padding:0">
+        <svg width="44" height="44" viewBox="0 0 44 44"><rect x="2" y="2" width="24" height="30" rx="4" fill="url(#logoGrad)"/><rect x="18" y="12" width="24" height="30" rx="4" fill="#a5b4fc"/><defs><linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs></svg>
+      </div>
       <div class="header-info">
         <h1 id="empresa-nome-display">StockPro</h1>
         <p id="empresa-cnpj-display"></p>
@@ -535,10 +539,17 @@ tbody tr:hover td{background:#fafafa;}
   // AUTH
   var usuariosKey='est_usuarios',sessaoKey='est_sessao';
   var usuarioAtual=null;
-  function getUsuarios(){return JSON.parse(localStorage.getItem(usuariosKey)||'[]');}
-  function saveUsuarios(u){localStorage.setItem(usuariosKey,JSON.stringify(u));}
-  function getDados(id){return JSON.parse(localStorage.getItem('est_dados_'+id)||'{"produtos":[],"historico":[],"vendas":[],"orcamentos":[],"devolucoes":[],"clientes":[]}');}
-  function saveDados(id,d){localStorage.setItem('est_dados_'+id,JSON.stringify(d));}
+  var usuariosCache=[];
+  async function getUsuarios(){
+    try{ var r=await window.storage.get(usuariosKey,true); return r?JSON.parse(r.value):[]; }
+    catch(e){ return []; }
+  }
+  async function saveUsuarios(u){ usuariosCache=u; await window.storage.set(usuariosKey,JSON.stringify(u),true); }
+  async function getDados(id){
+    try{ var r=await window.storage.get('est_dados_'+id,true); return r?JSON.parse(r.value):{produtos:[],historico:[],vendas:[],orcamentos:[],devolucoes:[],clientes:[]}; }
+    catch(e){ return {produtos:[],historico:[],vendas:[],orcamentos:[],devolucoes:[],clientes:[]}; }
+  }
+  async function saveDados(id,d){ await window.storage.set('est_dados_'+id,JSON.stringify(d),true); }
   function showMsg(id,msg,tipo){var el=document.getElementById(id);el.textContent=msg;el.className='auth-msg '+tipo;el.style.display='block';setTimeout(function(){el.style.display='none';},4000);}
 
   window.switchAuthTab=function(tab,btn){
@@ -548,7 +559,7 @@ tbody tr:hover td{background:#fafafa;}
     document.getElementById('form-'+tab).classList.add('active');
   };
 
-  window.fazerCadastro=function(){
+  window.fazerCadastro=async function(){
     var nome=document.getElementById('c-nome').value.trim();
     var empresa=document.getElementById('c-empresa').value.trim();
     var fantasia=document.getElementById('c-fantasia').value.trim();
@@ -560,37 +571,38 @@ tbody tr:hover td{background:#fafafa;}
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showMsg('msg-cadastro','E-mail inválido.','err');return;}
     if(senha.length<6){showMsg('msg-cadastro','Senha mínimo 6 caracteres.','err');return;}
     if(senha!==senha2){showMsg('msg-cadastro','As senhas não coincidem.','err');return;}
-    var us=getUsuarios();
+    var us=await getUsuarios();
     if(us.find(function(u){return u.email===email;})){showMsg('msg-cadastro','E-mail já cadastrado.','err');return;}
     us.push({id:uid(),nome:nome,empresa:empresa,fantasia:fantasia,cnpj:cnpj,email:email,senhaHash:hash(senha)});
-    saveUsuarios(us);
+    await saveUsuarios(us);
     showMsg('msg-cadastro','✅ Conta criada! Faça login.','ok');
     ['c-nome','c-empresa','c-fantasia','c-cnpj','c-email','c-senha','c-senha2'].forEach(function(id){document.getElementById(id).value='';});
     setTimeout(function(){switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);},1500);
   };
 
-  window.fazerLogin=function(){
+  window.fazerLogin=async function(){
     var email=document.getElementById('l-email').value.trim().toLowerCase();
     var senha=document.getElementById('l-senha').value;
     if(!email||!senha){showMsg('msg-login','Preencha e-mail e senha.','err');return;}
-    var user=getUsuarios().find(function(u){return u.email===email&&u.senhaHash===hash(senha);});
+    var us=await getUsuarios();
+    var user=us.find(function(u){return u.email===email&&u.senhaHash===hash(senha);});
     if(!user){showMsg('msg-login','E-mail ou senha incorretos.','err');return;}
     localStorage.setItem(sessaoKey,JSON.stringify(user));
     iniciarApp(user);
   };
 
-  window.recuperarSenha=function(){
+  window.recuperarSenha=async function(){
     var email=document.getElementById('r-email').value.trim().toLowerCase();
     var nova=document.getElementById('r-nova').value;
     var nova2=document.getElementById('r-nova2').value;
     if(!email||!nova){showMsg('msg-recuperar','Preencha todos os campos.','err');return;}
     if(nova.length<6){showMsg('msg-recuperar','Senha mínimo 6 caracteres.','err');return;}
     if(nova!==nova2){showMsg('msg-recuperar','As senhas não coincidem.','err');return;}
-    var us=getUsuarios();
+    var us=await getUsuarios();
     var idx=us.findIndex(function(u){return u.email===email;});
     if(idx<0){showMsg('msg-recuperar','E-mail não encontrado.','err');return;}
     us[idx].senhaHash=hash(nova);
-    saveUsuarios(us);
+    await saveUsuarios(us);
     showMsg('msg-recuperar','✅ Senha redefinida! Faça login.','ok');
     ['r-email','r-nova','r-nova2'].forEach(function(id){document.getElementById(id).value='';});
     setTimeout(function(){switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);},1500);
@@ -611,9 +623,9 @@ tbody tr:hover td{background:#fafafa;}
   var dados={produtos:[],historico:[],vendas:[],orcamentos:[],devolucoes:[],clientes:[]};
   function salvar(){saveDados(usuarioAtual.id,dados);}
 
-  function iniciarApp(user){
+  async function iniciarApp(user){
     usuarioAtual=user;
-    dados=getDados(user.id);
+    dados=await getDados(user.id);
     if(!dados.orcamentos)dados.orcamentos=[];
     if(!dados.devolucoes)dados.devolucoes=[];
     if(!dados.clientes)dados.clientes=[];
@@ -1085,16 +1097,16 @@ tbody tr:hover td{background:#fafafa;}
     document.getElementById('cfg-email').value=u.email||'';
   }
 
-  window.salvarPerfil=function(){
+  window.salvarPerfil=async function(){
     var fb=document.getElementById('cfg-fb1');
     var nome=document.getElementById('cfg-nome').value.trim();
     var empresa=document.getElementById('cfg-empresa').value.trim();
     if(!nome||!empresa){fb.textContent='Nome e razão social são obrigatórios.';fb.className='feedback err';fb.style.display='block';return;}
-    var us=getUsuarios();
+    var us=await getUsuarios();
     var idx=us.findIndex(function(u){return u.id===usuarioAtual.id;});
     if(idx<0)return;
     us[idx].nome=nome;us[idx].empresa=empresa;us[idx].fantasia=document.getElementById('cfg-fantasia').value.trim();us[idx].cnpj=document.getElementById('cfg-cnpj').value.trim();
-    saveUsuarios(us);
+    await saveUsuarios(us);
     Object.assign(usuarioAtual,us[idx]);
     localStorage.setItem(sessaoKey,JSON.stringify(usuarioAtual));
     document.getElementById('user-nome-display').textContent=nome;
@@ -1105,7 +1117,7 @@ tbody tr:hover td{background:#fafafa;}
     setTimeout(function(){fb.style.display='none';},3000);
   };
 
-  window.alterarSenha=function(){
+  window.alterarSenha=async function(){
     var fb=document.getElementById('cfg-fb2');
     var atual=document.getElementById('cfg-senha-atual').value;
     var nova=document.getElementById('cfg-senha-nova').value;
@@ -1113,10 +1125,10 @@ tbody tr:hover td{background:#fafafa;}
     if(!atual||!nova){fb.textContent='Preencha todos os campos.';fb.className='feedback err';fb.style.display='block';return;}
     if(nova.length<6){fb.textContent='Nova senha mínimo 6 caracteres.';fb.className='feedback err';fb.style.display='block';return;}
     if(nova!==nova2){fb.textContent='As senhas não coincidem.';fb.className='feedback err';fb.style.display='block';return;}
-    var us=getUsuarios();
+    var us=await getUsuarios();
     var idx=us.findIndex(function(u){return u.id===usuarioAtual.id;});
     if(us[idx].senhaHash!==hash(atual)){fb.textContent='Senha atual incorreta.';fb.className='feedback err';fb.style.display='block';return;}
-    us[idx].senhaHash=hash(nova);saveUsuarios(us);
+    us[idx].senhaHash=hash(nova);await saveUsuarios(us);
     ['cfg-senha-atual','cfg-senha-nova','cfg-senha-nova2'].forEach(function(id){document.getElementById(id).value='';});
     fb.textContent='✅ Senha alterada com sucesso!';fb.className='feedback ok';fb.style.display='block';
     setTimeout(function(){fb.style.display='none';},3000);
