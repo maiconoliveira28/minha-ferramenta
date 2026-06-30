@@ -594,7 +594,7 @@ tbody tr:hover td{background:#fafafa;}
       ['c-nome','c-empresa','c-fantasia','c-cnpj','c-email','c-senha','c-senha2'].forEach(function(id){document.getElementById(id).value='';});
       setTimeout(function(){switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);},1500);
     }catch(e){
-      showMsg('msg-cadastro','❌ Erro ao salvar. Tente novamente.','err');
+      showMsg('msg-cadastro','❌ Erro: '+(e&&e.message?e.message:String(e)),'err');
     }
   };
 
