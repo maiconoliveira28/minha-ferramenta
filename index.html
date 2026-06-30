@@ -541,10 +541,24 @@ tbody tr:hover td{background:#fafafa;}
   var usuarioAtual=null;
   var usuariosCache=[];
   async function getUsuarios(){
-    try{ var r=await window.storage.get(usuariosKey,true); return r?JSON.parse(r.value):[]; }
-    catch(e){ return []; }
+    try{
+      var r=await window.storage.get(usuariosKey,true);
+      return r?JSON.parse(r.value):[];
+    }catch(e){
+      return [];
+    }
   }
-  async function saveUsuarios(u){ usuariosCache=u; await window.storage.set(usuariosKey,JSON.stringify(u),true); }
+  async function saveUsuarios(u){
+    usuariosCache=u;
+    try{
+      var result=await window.storage.set(usuariosKey,JSON.stringify(u),true);
+      if(!result) console.error('Falha ao salvar usuários: resultado vazio');
+      return result;
+    }catch(e){
+      console.error('Erro ao salvar usuários:',e);
+      throw e;
+    }
+  }
   async function getDados(id){
     try{ var r=await window.storage.get('est_dados_'+id,true); return r?JSON.parse(r.value):{produtos:[],historico:[],vendas:[],orcamentos:[],devolucoes:[],clientes:[]}; }
     catch(e){ return {produtos:[],historico:[],vendas:[],orcamentos:[],devolucoes:[],clientes:[]}; }
@@ -574,10 +588,14 @@ tbody tr:hover td{background:#fafafa;}
     var us=await getUsuarios();
     if(us.find(function(u){return u.email===email;})){showMsg('msg-cadastro','E-mail já cadastrado.','err');return;}
     us.push({id:uid(),nome:nome,empresa:empresa,fantasia:fantasia,cnpj:cnpj,email:email,senhaHash:hash(senha)});
-    await saveUsuarios(us);
-    showMsg('msg-cadastro','✅ Conta criada! Faça login.','ok');
-    ['c-nome','c-empresa','c-fantasia','c-cnpj','c-email','c-senha','c-senha2'].forEach(function(id){document.getElementById(id).value='';});
-    setTimeout(function(){switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);},1500);
+    try{
+      await saveUsuarios(us);
+      showMsg('msg-cadastro','✅ Conta criada! Faça login.','ok');
+      ['c-nome','c-empresa','c-fantasia','c-cnpj','c-email','c-senha','c-senha2'].forEach(function(id){document.getElementById(id).value='';});
+      setTimeout(function(){switchAuthTab('login',document.querySelectorAll('.auth-tab')[0]);},1500);
+    }catch(e){
+      showMsg('msg-cadastro','❌ Erro ao salvar. Tente novamente.','err');
+    }
   };
 
   window.fazerLogin=async function(){
